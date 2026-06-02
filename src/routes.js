@@ -1,6 +1,15 @@
 import { getJwks } from './keys.js';
 import { generateAuthCode, verifyAuthCode, generateIdToken, generateAccessToken, verifyAccessToken } from './oidc.js';
 
+// Helper for basic credential validation
+function validateCredentials(username, password) {
+  const users = {
+    'testuser': 'password',
+    'admin': 'admin'
+  };
+  return users[username] === password;
+}
+
 export function setupRoutes(app) {
   // 1. Discovery Endpoint
   app.get('/.well-known/openid-configuration', (c) => {
@@ -18,7 +27,7 @@ export function setupRoutes(app) {
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
       claims_supported: ['sub', 'iss', 'aud', 'exp', 'iat', 'nonce', 'name', 'preferred_username'],
-      grant_types_supported: ['authorization_code'],
+      grant_types_supported: ['authorization_code', 'password'],
     });
   });
 
@@ -89,8 +98,8 @@ export function setupRoutes(app) {
 
     // VERY BASIC hardcoded authentication. 
     // In a real scenario, check against a database or user pool.
-    if (!username || !password) {
-      return c.text('Username and password required', 400);
+    if (!username || !password || !validateCredentials(username, password)) {
+      return c.text('Invalid username or password', 401);
     }
 
     // Success! Generate an authorization code.
@@ -121,6 +130,23 @@ export function setupRoutes(app) {
 
     // Note: A real IdP should also verify client_id and client_secret if it's a confidential client.
     
+    if (grant_type === 'password') {
+      const { username, password } = body;
+      if (!validateCredentials(username, password)) {
+        return c.json({ error: 'invalid_grant', error_description: 'Invalid credentials' }, 401);
+      }
+      const url = new URL(c.req.url);
+      const issuer = `${url.protocol}//${url.host}`;
+      const idToken = await generateIdToken(c.env, username, '', client_id, issuer);
+      const accessToken = await generateAccessToken(c.env, username, client_id, issuer);
+      return c.json({
+        access_token: accessToken,
+        token_type: 'Bearer',
+        expires_in: 3600,
+        id_token: idToken,
+      });
+    }
+
     if (grant_type !== 'authorization_code') {
       return c.json({ error: 'unsupported_grant_type' }, 400);
     }
