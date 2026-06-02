@@ -10,6 +10,13 @@ function validateCredentials(username, password) {
   return users[username] === password;
 }
 
+// Helper for validating client ID
+function isValidClientId(env, clientId) {
+  if (!env.ALLOWED_CLIENT_IDS) return false;
+  const allowedIds = env.ALLOWED_CLIENT_IDS.split(',').map(id => id.trim());
+  return allowedIds.includes(clientId);
+}
+
 export function setupRoutes(app) {
   // 1. Discovery Endpoint
   app.get('/.well-known/openid-configuration', (c) => {
@@ -43,6 +50,10 @@ export function setupRoutes(app) {
 
     if (!client_id || !redirect_uri || response_type !== 'code') {
       return c.text('Invalid authorization request. Ensure client_id, redirect_uri are provided and response_type is "code".', 400);
+    }
+
+    if (!isValidClientId(c.env, client_id)) {
+      return c.text('Unauthorized Client ID', 403);
     }
 
     // Render a simple login HTML page
@@ -96,6 +107,10 @@ export function setupRoutes(app) {
     const body = await c.req.parseBody();
     const { client_id, redirect_uri, state, nonce, username, password } = body;
 
+    if (!isValidClientId(c.env, client_id)) {
+      return c.text('Unauthorized Client ID', 403);
+    }
+
     // VERY BASIC hardcoded authentication. 
     // In a real scenario, check against a database or user pool.
     if (!username || !password || !validateCredentials(username, password)) {
@@ -127,6 +142,10 @@ export function setupRoutes(app) {
   app.post('/token', async (c) => {
     const body = await c.req.parseBody();
     const { grant_type, code, redirect_uri, client_id, client_secret } = body;
+
+    if (!isValidClientId(c.env, client_id)) {
+      return c.json({ error: 'invalid_client', error_description: 'Unauthorized Client ID' }, 401);
+    }
 
     // Note: A real IdP should also verify client_id and client_secret if it's a confidential client.
     
