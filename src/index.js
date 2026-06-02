@@ -1,15 +1,18 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { Hono } from 'hono';
+import { setupRoutes } from './routes.js';
 
-export default {
-	async fetch(request, env, ctx) {
-		return new Response("Hello World!");
-	},
-};
+const app = new Hono();
+
+// Add a basic logger middleware
+app.use('*', async (c, next) => {
+  console.log(`[${c.req.method}] ${c.req.url}`);
+  await next();
+});
+
+// Setup the OIDC routes
+setupRoutes(app);
+
+// Root endpoint just to show it's alive
+app.get('/', (c) => c.text('Epic EAS OIDC Identity Provider is running.'));
+
+export default app;
