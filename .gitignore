@@ -165,3 +165,5 @@ dist
 .env*
 !.env.example
 .wrangler/
+private_key.pem
+.dev.vars
