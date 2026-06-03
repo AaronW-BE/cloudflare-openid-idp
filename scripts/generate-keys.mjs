@@ -21,10 +21,13 @@ async function generate() {
   fs.writeFileSync('private_key.pem', privateKeyPem);
   
   // Format for .dev.vars (dotenv): enclose in quotes and preserve newlines
-  const envFormat = `PRIVATE_KEY="${privateKeyPem}"\n`;
+  // We stringify the JWK again to escape quotes correctly, or just use single quotes around the JSON for dotenv, but JSON has double quotes.
+  // Best way for dotenv with JSON is to enclose the whole JSON string in single quotes or escaped double quotes.
+  // Actually, for Wrangler .dev.vars, just a raw JSON string on a single line is fine.
+  const envFormat = `PRIVATE_KEY="${privateKeyPem}"\nPUBLIC_JWK='${JSON.stringify(publicJwk)}'\n`;
   fs.writeFileSync('.dev.vars', envFormat);
   
-  console.log("✅ Private key also saved to 'private_key.pem' and injected into '.dev.vars'.");
+  console.log("✅ Key pair saved to 'private_key.pem' and injected into '.dev.vars'.");
   console.log("⚠️  SECURITY WARNING: Do not commit these files to version control!");
 }
 

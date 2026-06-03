@@ -1,4 +1,4 @@
-import { exportJWK, generateKeyPair, importPKCS8 } from 'jose';
+import { exportJWK, generateKeyPair, importPKCS8, importJWK } from 'jose';
 
 // In-memory cache for the key pair to avoid re-generating on every request
 // Note: In a production Cloudflare Worker, you should store the private key
@@ -11,19 +11,17 @@ export async function getKeyPair(env) {
     return cachedKeyPair;
   }
 
-  // If a private key is provided via environment variables, use it.
-  if (env && env.PRIVATE_KEY) {
-    // Assuming PRIVATE_KEY is in PKCS8 PEM format
+  // If a private key and public JWK are provided via environment variables, use them.
+  if (env && env.PRIVATE_KEY && env.PUBLIC_JWK) {
     try {
       const privateKey = await importPKCS8(env.PRIVATE_KEY, 'RS256');
-      // For a full key pair we would ideally have the public key or extract it,
-      // but 'jose' can often sign with just the private key.
-      // To expose the JWKS, we need the public key.
-      // If we only have private key, we might need a library to extract public key,
-      // or we just generate a new one if it's not setup correctly.
-      // For simplicity in this demo, if env.PRIVATE_KEY is missing, we auto-generate.
+      const publicJwk = JSON.parse(env.PUBLIC_JWK);
+      const publicKey = await importJWK(publicJwk, 'RS256');
+      
+      cachedKeyPair = { publicKey, privateKey, publicJwk };
+      return cachedKeyPair;
     } catch (e) {
-      console.error("Failed to parse PRIVATE_KEY from env, generating a new one.", e);
+      console.error("Failed to parse PRIVATE_KEY or PUBLIC_JWK from env, generating a new one.", e);
     }
   }
 
@@ -40,8 +38,11 @@ export async function getJwks(env) {
     return cachedJwks;
   }
 
-  const { publicKey } = await getKeyPair(env);
-  const jwk = await exportJWK(publicKey);
+  const { publicKey, publicJwk } = await getKeyPair(env);
+  const jwkBase = publicJwk || await exportJWK(publicKey);
+  
+  // Clone to avoid modifying the cached publicJwk directly
+  const jwk = { ...jwkBase };
   
   // Add required fields for JWKS
   jwk.kid = 'epic-eas-key-1';
