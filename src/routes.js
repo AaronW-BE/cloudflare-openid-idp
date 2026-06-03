@@ -35,6 +35,7 @@ export function setupRoutes(app) {
       id_token_signing_alg_values_supported: ['RS256'],
       claims_supported: ['sub', 'iss', 'aud', 'exp', 'iat', 'nonce', 'name', 'preferred_username'],
       grant_types_supported: ['authorization_code', 'password'],
+      scopes_supported: ['openid', 'profile'],
     });
   });
 
