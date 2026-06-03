@@ -9,7 +9,8 @@ export async function generateIdToken(env, subject, nonce, audience, issuer) {
 
   const jwt = new SignJWT({
     nonce: nonce,
-    // Add any custom Epic-required claims here if needed
+    name: subject === 'testuser' ? 'Test User' : subject,
+    preferred_username: subject,
   })
     .setProtectedHeader({ alg: 'RS256', kid: 'epic-eas-key-1' })
     .setSubject(subject)
